@@ -1,0 +1,631 @@
+\documentclass[article,nojss]{jss}
+
+\usepackage{subfigure}
+
+%\VignetteIndexEntry{Using paircompviz}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% declarations for jss.cls %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% almost as usual
+\author{
+  Michal Burda\\University of Ostrava
+  %\And Second Author\\Plus Affiliation
+}
+\title{
+  \pkg{paircompviz}: An \proglang{R} Package for Visualization of Multiple Pairwise Comparison Test Results
+}
+
+%% for pretty printing and a nice hypersummary also set:
+\Plainauthor{Michal Burda} %% comma-separated
+\Plaintitle{paircompviz: An R Package for Visualization of Multiple Comparison Test Results} %% without formatting
+\Shorttitle{\pkg{paircompviz}: Multiple Comparison Tests Visualization} %% a short title (if necessary)
+
+%% an abstract and keywords
+\Abstract{
+  The aim of this paper is to describe an R package for visualization of the results of multiple
+  pairwise comparison tests. Having data that capture some treatments, multiple comparisons test for
+  differences between all pairs of them. The \pkg{paircompviz} package provides a function for
+  visualization of such results in Hasse diagram, a graph with significant differences as directed edges
+  between vertices representing the treatments.
+}
+\Keywords{multiple, pairwise, comparison, test, visualization, Hasse diagram, \proglang{R}}
+\Plainkeywords{multiple, pairwise, comparison, test, visualization, Hasse diagram, R} %% without formatting
+%% at least one keyword must be supplied
+
+%% publication information
+%% NOTE: Typically, this can be left commented and will be filled out by the technical editor
+%% \Volume{50}
+%% \Issue{9}
+%% \Month{June}
+%% \Year{2012}
+%% \Submitdate{2012-06-04}
+%% \Acceptdate{2012-06-04}
+
+%% The address of (at least) one author should be given
+%% in the following format:
+\Address{
+  Michal Burda\\
+  Institute for Research and Applications of Fuzzy Modeling\\
+  Centre of Excellence IT4Innovations\\
+  Division University of Ostrava\\
+  30. dubna 22, 701 03 Ostrava, Czech Republic\\
+  E-mail: \email{michal.burda@osu.cz}
+  %\\ URL: \url{http://eeecon.uibk.ac.at/~zeileis/}
+}
+%% It is also possible to add a telephone and fax number
+%% before the e-mail in the following format:
+%% Telephone: +43/512/507-7103
+%% Fax: +43/512/507-2851
+
+%% for those who use Sweave please include the following line (with % symbols):
+%% need no \usepackage{Sweave.sty}
+
+%% end of declarations %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newcommand{\fixme}[1]{\textbf{\color{red}(FIXME: #1)}}
+
+
+
+
+\begin{document}
+
+%% include your article here, just as usual
+%% Note that you should use the \pkg{}, \proglang{} and \code{} commands.
+
+%\section[About Java]{About \proglang{Java}}
+%% Note: If there is markup in \(sub)section, then it has to be escape as above.
+
+<<>>=
+  library(paircompviz)
+@
+
+
+
+\section{Introduction}
+\label{sec:introduction}
+
+Visualization is an important tool for exploration, analysis and presentation of data. A clear
+and vivid figure or diagram can improve significantly the readibility of the presented facts.
+In this paper, an implementation of a novel technique for visualization of multiple comparison
+test results is presented. \emph{Multiple comparison} tests (or \emph{pairwise} tests) occur in
+testing for differences between all pairs of $k$ treatments \citep{hsu1996multiple}.
+It is a common fact that for $k$ treatments, a batch of ${k \choose 2} = \frac{k(k-1)}{2}$ tests
+has to be performed to compare all pairs.
+
+Typically, the pairwise comparison tests are performed on treatment means, but they may be also applied
+on other statistics such as variances, quantiles, or proportions.
+
+Multiple comparison procedure usually results in a triangular matrix $M$ of p-values, where the
+cell $m_{ij}$ of matrix $M$ has p-value of test for difference between treatments $i$ and $j$.
+Comparisons with p-value below some given threshold $\alpha$ (usually $\alpha = 0.05$) are
+considered statistically significant.
+
+Even for as small number of treatments (e.g. $k=5$), it is rather inconvenient to perceive
+the results directly. An appropriate visualization may significantly improve the understandability.
+A common approach for visualization of multiple comparisons is a \emph{line} or
+\emph{letter diagram} \citep{Gramm2007, ennis2009}.
+
+The main ideas of these diagrams are briefly described on the following example. Assume treatments
+$T_1, \ldots, T_5$ such that $T_1$ and $T_5$ is the only significantly different pair. The line
+diagram is constructed as follows:
+(1) Sort the treatments accordingly to their tested values (e.g. mean) into increasing order. 
+(2) Draw a line under all largest groups of treatments such that no pair of treatments in that
+group is significantly different.
+Since there are two groups of pairwise-non-significant treatments, the resulting line diagram contains two lines --
+see Figure \ref{fig:linedia1}.
+
+
+\begin{figure}
+\centering
+\subfigure[Line diagram]{
+  \begin{tabular}{ccccc}
+  $T_1$ & $T_2$ & $T_3$ & $T_4$ & $T_5$ \\
+  \\
+  \cline{1-4} \\
+  \cline{2-5} \\
+  \end{tabular}
+  \label{fig:linedia1}
+}
+\subfigure[Letter diagram]{
+  \begin{tabular}{ccccc}
+  $T_1$ & $T_2$ & $T_3$ & $T_4$ & $T_5$ \\
+  $a$ & $a$ & $a$ & $a$ & \\
+  & $b$ & $b$ & $b$ & $b$ \\ \\
+  \end{tabular}
+  \label{fig:letterdia1}
+}
+\caption{Diagrams of treatments $T_1, \ldots, T_5$ such that only treatments $T_1$ and $T_5$ are
+significantly different, i.e. treatments underlined with the same line or sharing a common letter
+are not (significantly) different.}
+\end{figure}
+
+Some authors (e.g. \citet{piepho2000}) prefer to use letters instead of lines, because it is
+sometimes not possible to represent all statements of significance by a diagram with non-interrupted
+lines. The general idea is to replace each line of the line diagram with a letter -- see letter diagram in 
+Figure \ref{fig:letterdia1} that is equivalent to line diagram in Figure \ref{fig:linedia1}.
+
+\begin{figure}
+\centering
+  \begin{tabular}{ccccc}
+  $T_1$ & $T_2$ & $T_3$ & $T_4$ & $T_5$ \\
+  $a$ & & & $a$ & \\
+  $b$ & $b$ & & & \\
+  & & $c$ & $c$ & $c$ \\
+  & $d$ & $d$ & & $d$ \\
+  \end{tabular}
+  \caption{An example of letter diagram for which the corresponding line diagram can not be
+  constructed.}
+  \label{fig:letterdia2}
+\end{figure}
+
+Consider now the only significant treatments be pairs $(T_1, T_5), (T_1, T_3), (T_2, T_4)$.
+A corresponding letter diagram is depicted in Figure
+\ref{fig:letterdia2}. For that case, a line diagram does not exist since it is not possible to
+draw all lines without interrupting them \citep{piepho2000, Gramm2007}.
+
+Letter diagrams can be quite complicated even for such simple setting as in the previous example.
+Since letter diagrams visualize groups of non-significant treatments, it may be sometimes hard to
+immediately determine the significantly different pairs of treatments.
+
+Therefore the package \pkg{paircompviz}, a novel \proglang{R} implementation of the visualization technique 
+based on \emph{Hasse diagrams}, is presented in this paper. Unlike letter diagrams, Hasse diagrams
+explicitly depict the significant pairs in an easy-understandable way. Moreover, additional visual
+information can be introduced within the diagrams, such as treatment means, sample sizes or p-values.
+The author believes that Hasse diagrams provide a vivid and easily understandable alternative to
+letter diagrams for visualization of the all-pairwise comparison test results.
+
+
+
+\section{Hasse Diagrams}
+\label{sec:hasse}
+
+Before describing the proposed visualization technique, some important notions have to be defined.
+
+A \emph{partial order} is a binary relation $Q \subseteq P \times P$, which is reflexive, antisymmetric, and transitive.
+A \emph{partially ordered set} is a set $P$ equipped with a partial order relation $Q$.
+
+\emph{Hasse diagram} is a simple picture of a finite partially ordered set. It
+is a graph with each member of a set $P$ being represented as a vertex. A directed edge is drawn
+downwards from vertex $y$ to vertex $x$ if and only if $(x, y) \in Q$, $x \ne y$, and there is no
+such $z$ that $(x, z) \in Q \land (z, y) \in Q$. Each edge must be connected to
+exactly two vertices: its two endpoints.
+In other words, ${x, y} \in Q$ iff $y$ is positioned above $x$ and there exists a path
+from $y$ to $x$.
+
+\begin{figure}
+  \centering
+  \includegraphics{vignette-customHasse}
+  \caption{An illustrative Hasse diagram (see the example in section \ref{sec:hasse}).}
+  \label{fig:customHasse}
+\end{figure}
+
+\emph{Example.} Consider Hasse diagram in Fig.~\ref{fig:customHasse}. As can be seen, node $A$ is greater
+than all other nodes except $H$, because there exists a path from $A$ to any other node except $H$.
+Nodes $C$ and $D$ are incomparable, although they are both greater than $E$, $F$ and $G$. Node $H$
+is incomparable with any other node. The whole partial order relation is: $\Bigl\{(B, A),$ $(C, B),$
+$(C, A),$ $(D, A),$ $(E, C),$ $(E, B),$ $(E, A),$ $(E, D),$ $(F, E),$ $(F, C),$ $(F, B),$
+$(F, A),$ $(F, D),$ $(G, E),$ $(G, C),$ $(G, B),$ $(G, A),$ $(G, D),$
+$(A, A),$ $(B, B),$ $(C, C),$ $(D, D),$ $(E, E),$ $(F, F),$ $(G, G),$ $(H, H)\Bigr\}$.
+
+
+\section{Visualization of All-Pairwise Comparison Tests}
+\label{sec:paircomp}
+
+Consider now an all-pairwise comparison test $\tau$ of statistic $\psi$ on $k$ treatments $T_1, \ldots,
+T_k$. Let $\psi(T_i)$ denote a value of statistic $\psi$ on treatment $T_i$. For instance, if
+$\psi$ would be a mean, then $\psi(T_i)$ would denote the mean value of treatment $T_i$.
+Let $\tau(T_i, T_j) < \alpha$ denote
+statistically significant difference between treatments $T_i$ and $T_j$ at the significance level
+$\alpha$ (e.g. $\tau$ could be a two sample Student's $t$--test).
+
+If a relation
+\begin{equation}
+H = \biggl\{(T_i, T_j)\ |\ i=j \lor \Bigl(\psi(T_i) < \psi(T_j)\ \land\ \tau(T_i, T_j) < \alpha\Bigr)\biggr\}
+\label{eq:h}
+\end{equation}
+is a partial order on $\{T_1, \ldots, T_k\}$, it can be depicted as a Hasse diagram.
+
+Function \code{paircomp} of the \pkg{paircompviz} package
+is intended to create Hasse diagrams from the result $H$ of
+multiple comparisons. Graph rendering is performed with the \pkg{Rgraphviz} package \citep{Rgraphviz}.
+
+As an example, consider a \code{cholesterol} dataset from the \pkg{multcomp} package by \citet{multcomp}.
+It contains measures of cholesterol response (\code{cholesterol\$response}) to 5 treatments
+(\code{cholesterol\$trt}).
+
+<<fig=FALSE,echo=TRUE>>=
+  library(multcomp)
+  head(cholesterol)
+@
+
+Let us perform a pairwise Student's $t$ test on \texttt{response} grouped by \texttt{trt}:
+
+<<fig=FALSE,echo=TRUE>>=
+  pairwise.t.test(cholesterol$response, cholesterol$trt)
+@
+
+We can see many statistically significant results (for significance level $\alpha = 0.05$), however,
+it is not immediately clear, which group response is greater than other etc. Let us depict the
+results in a Hasse diagram (see Fig.~\ref{fig:cholesterolHasse}):
+
+<<cholesterolHasse,echo=TRUE,fig=TRUE,include=FALSE,width=7,height=5>>=
+  paircomp(obj=cholesterol$response, grouping=cholesterol$trt, test="t")
+@
+
+\begin{figure}
+  \centering
+  \includegraphics{vignette-cholesterolHasse}
+  \caption{Hasse diagram from pairwise $t$ test on the \code{cholesterol} data}
+  \label{fig:cholesterolHasse}
+\end{figure}
+
+%\begin{figure}
+%\centering
+%\begin{tabular}{ccccc}
+ %1time & 2times & 4times & drugD & drugE\\
+ %a & a & & & \\
+ %& b & b & & \\
+ %& & c & c & \\
+%\end{tabular}
+%\caption{Letter diagram corresponding to Hasse diagram in figure \ref{fig:cholesterolHasse}.}
+%\label{fig:cholesterolLetter}
+%\end{figure}
+
+%The result of the last command is shown in figure \ref{fig:cholesterolHasse};
+%corresponding letter diagram is depicted in figure \ref{fig:cholesterolLetter}.
+
+The \code{obj} argument is for a response vector and \code{grouping} is for a grouping factor.
+
+The \code{test} argument specifies the type of pairwise tests. Possible values are: \code{"t"},
+\code{"prop"}, and \code{"wilcox"}, for $t$ test, proportion test and Wilcoxon rank sum test,
+respectively. See also \pkg{stats} package functions \code{pairwise.t.test}, \code{pairwise.prop.test}
+and \code{pairwise.wilcox.test} for details.
+
+Other function arguments are: \code{level}, \code{main}, \code{visualize}, \code{result},
+\code{draw} and \code{compress}. The last argument is described separately in section
+\ref{sec:compressSubsection}.
+
+The \code{level} argument is for setting the significance threshold $\alpha$ (default is 0.05),
+\code{main} specifies the diagram title. If \code{result} is \code{TRUE}, the test statistics are also
+returned from the \code{paircomp} function. Diagram drawing can be disabled by setting \code{draw}
+to \code{FALSE}.
+
+The \code{visualize} argument is a vector of string flags that enable drawing of some
+additional graphical information into the diagram.
+The meaning of the flags depends on the type of the test being used ($t$ test, Wilcoxon test, or
+proportion test). If \code{"position"} is
+present in the vector, the vertices background color is derived from mean, median, or proportion,
+respectively, \code{"size"} enables vertices sizes to correspond to sample sizes,
+and finally, the presence of \code{"pvalue"} enables p-value labels along with edges as well as
+varying edge thickness corresponding to p-value of the comparison test.
+
+There may be also other arguments passed to the \code{paircomp} function. They are transparently
+forwarded to the underlying pairwise comparison tests functions (\code{pairwise.t.test},
+\code{pairwise.prop.test}, or \code{pairwise.wilcox.test}). For instance, a different p-value
+adjustment method may be required. For that, a \code{p.adjust.method} argument exists in the
+underlying functions:
+
+<<bonfer,echo=TRUE,fig=TRUE,include=FALSE,width=7,height=5>>=
+  paircomp(InsectSprays$count, InsectSprays$spray, test="t",
+           compress=TRUE, p.adjust.method="bonferroni")
+@
+
+See help pages for more details.
+
+
+
+\subsection[Displaying Pairwise Comparisons Provided by the multcomp Package]{Displaying Pairwise Comparisons Provided by the \pkg{multcomp} Package}
+
+Another method for pairwise comparisons is provided by the \pkg{multcomp} package \citep{multcomp}.
+Moreover, that
+package allows to depict box-plots enriched with \emph{compact letter display} that was discussed in
+section \ref{sec:introduction}. The \pkg{multcomp} package provides Tukey's test for multiple
+comparisons by the \code{glht} function. Results from that function may also be passed to
+\code{paircomp} in order to generate a Hasse diagram from it. An example on \code{car90} dataset
+from the \pkg{rpart} package \citep{rpart} follows:
+
+<<tukeyHasse,echo=TRUE,fig=TRUE,include=FALSE,width=7,height=5>>=
+  library(rpart)       # for car90 dataset
+  library(multcomp)    # for glht() and cld() functions
+  aovR <- aov(Price ~ Type, data = car90)
+  glhtR <- glht(aovR, linfct = mcp(Type = "Tukey"))
+  paircomp(glhtR, compress=FALSE)
+@
+
+Compare Hasse diagram in Fig.~\ref{fig:tukeyHasse} with compact letter display in
+Fig.~\ref{fig:tukeyCld}:
+
+<<tukeyCld,echo=TRUE,fig=TRUE,include=FALSE,width=7,height=5>>=
+  cldR <- cld(glhtR)
+  par(mar=c(4, 3, 5, 1))
+  plot(cldR)
+@
+
+\begin{figure}[p]
+  \centering
+  \includegraphics{vignette-tukeyHasse}
+  \caption{Hasse diagram from results of the \code{glht} function.
+    Corresponding compact letter display is depicted in Fig.~\ref{fig:tukeyCld} below.}
+  \label{fig:tukeyHasse}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics{vignette-tukeyCld}
+  \caption{Box-plot with compact letter display on top, as generated by the \pkg{multcomp} package.
+    Please compare with the equivalent Hasse diagram in Fig.~\ref{fig:tukeyHasse}.}
+  \label{fig:tukeyCld}
+\end{figure}
+
+
+
+
+\subsection{Edge Compression}
+\label{sec:compressSubsection}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics{vignette-noCompress}
+  \caption{Hasse diagram without compressed edges, i.e. generated by function \code{paircomp}
+    with argument \code{compress=FALSE} (compare with Fig.~\ref{fig:compress})}
+  \label{fig:noCompress}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics{vignette-compress}
+  \caption{Hasse diagram with edges being compressed by introducing a ``dot'' edge, i.e. generated
+    by function \code{paircomp} with argument \code{compress=TRUE} (compare with Fig.~\ref{fig:compress})}
+  \label{fig:compress}
+\end{figure}
+
+
+Sometimes, the pairwise comparison tests may yield in such bipartite setting
+that each pair of nodes of some two node subsets is inter-connected (without any
+intra-edge between nodes of the same subset).
+
+More specifically, let $U$, $V$ be non-empty sets of vertices, $U \cup V \subseteq \{T_1, T_2, \ldots, T_n\}$,
+$U \cap V = \emptyset$, such that for each $u\in U$ and $v\in V$ there exists an edge from $u$ to
+$v$. (The number of such edges equals $|U| \cdot |V|$.) Starting from $|U| > 2$ and $|V| > 2$, the
+Hasse diagram may become too complicated and hence confusing. Therefore, a \code{compress} argument exists in the
+\code{paircomp} function that enables ``compression'' of the edges in such a way that a new ``dot''
+node $w$ is introduced and $|U|\cdot|V|$ edges between sets $U$ and $V$ are replaced with $|U|+|V|$
+edges from set $U$ to node $w$ and from node $w$ to set $V$. See figures~\ref{fig:noCompress}
+and~\ref{fig:compress} for resulting diagrams of the following commands:
+
+<<noCompress,echo=TRUE,fig=TRUE,include=FALSE,width=7,height=5>>=
+  paircomp(InsectSprays$count, InsectSprays$spray, test="t",
+           compress=FALSE)
+@
+
+<<compress,echo=TRUE,fig=TRUE,include=FALSE,width=7,height=5>>=
+  paircomp(InsectSprays$count, InsectSprays$spray, test="t",
+           compress=TRUE)
+@
+
+
+
+
+
+\section{Notes on Partial Orderness of Multiple Comparisons}
+
+The ability of visualizing all-pairwise comparisons in Hasse diagram relies on whether relation $H$
+(see equation \ref{eq:h}) is a partial order. Generally, it is not true for all possible data. For instance, 
+consider artificial data, \code{brokentrans}\footnote{\code{brokentrans} is an artificial dataset
+that was generated from random numbers in order to provide an example of broken partial orderness
+with the $t$-test.}, that is a part of the \pkg{paircompviz} package:
+
+<<echo=TRUE>>=
+  data("brokentrans")
+  tapply(brokentrans$x, brokentrans$g, mean)
+  pairwise.t.test(brokentrans$x, brokentrans$g, pool.sd=FALSE)
+@
+
+For \code{level} argument set to $\alpha = 10^{-9}$, we obtain
+$H = \bigl\{(1, 2), (2, 3), (1, 1), (2, 2), (3, 3)\bigr\}$, which
+is clearly not a partial order because of broken transitivity between 1 and 3.
+The \code{paircomp} function would stop with an error, in this case.
+
+Although there do theoretically exist data such that its pairwise comparisons does not form a
+partial order and thus are not viewable in Hasse diagrams, it is rational to estimate the frequency 
+of such settings in real life.
+For that purpose, a~simple experiment was performed by utilizing datasets from packages
+\pkg{cluster} \citep{cluster}, \pkg{coin} \citep{coin}, \pkg{datasets} \citep{r}, \pkg{lattice}
+\citep{lattice}, \pkg{MASS} \citep{mass}, \pkg{multcomp} \citep{multcomp}, \pkg{party},
+\pkg{reshape2} \citep{reshape2}, \pkg{rpart} \citep{rpart}, \pkg{strucchange} \citep{strucchange},
+\pkg{survival} \citep{survival} and \pkg{vcd} \citep{vcd}.
+
+<<echo=FALSE>>=
+  library(plyr)
+  experiment <- read.csv("result.csv")
+  experiment[!is.element(experiment$error, c("broken", "ok")), "error"] <- NA
+  experiment <- na.omit(experiment)
+  experiment$error <- factor(experiment$error)
+  experiment$test <- mapvalues(experiment$type, 
+                               from=c("prop", 
+                                      "t pool.sd",
+                                      "t !pool.sd",
+                                      "tukey",
+                                      "wilcox"),
+                               to=c("pairwise comparisons for proportions",
+                                    "t-test with pooled SD",
+                                    "t-test without pooled SD",
+                                    "Tukey test",
+                                    "Wilcoxon rank sum test"))
+  experiment$type <- NULL
+  #levels(experiment$pkg)
+@
+
+From that packages, all datasets were added to the experiment, if they contained a factor column with at
+least 3~levels. For all combinations of factor and numeric columns, various multiple comparison
+tests were performed and the cases with broken transitivity condition counted.
+Table \ref{tab:levels} summarizes the frequencies of the numbers of grouping levels of datasets used
+in the experiment.
+
+
+\begin{table}
+  \caption{The distribution of the numbers of grouping factors' levels used in the experiment.}
+  \label{tab:levels}
+  \begin{center}
+<<echo=FALSE, results=tex>>=
+  library(xtable)
+  ttt <- t(as.data.frame(table(experiment$nlev)))
+  sepIndex <- 9
+  ttt <- data.frame(rbind(ttt[, 1:sepIndex], ttt[, (sepIndex+1):ncol(ttt)]))
+  ttt <- cbind(rep(c('levels', 'frequency'), 2), ttt)
+  print(xtable(ttt, align=c('r', 'r', '|', rep('r', sepIndex))),
+        floating=FALSE,
+        include.rownames=FALSE,
+        include.colnames=FALSE,
+        hline.after=c(0, 2, 4))
+@
+  \end{center}
+\end{table}
+
+
+\begin{table}
+  \caption{Occurences of broken transitivity in multiple comparison tests performed on many
+  datasets from various R packages.}
+  \label{tab:experiment}
+  \begin{center}
+<<echo=FALSE, results=tex>>=
+  library(reshape)
+  ttt <- as.data.frame(table(experiment[, c("test", "error")]) )
+  print(xtable(cast(ttt, test~error)), floating=FALSE, include.rownames=FALSE)
+@
+  \end{center}
+\end{table}
+
+
+\begin{table}
+  \caption{Settings at which broken transitivity appeared in the experiment.}
+  \label{tab:broken}
+  \begin{center}
+<<echo=FALSE, results=tex>>=
+  ttt <- experiment[experiment$error == 'broken', ]
+  ttt$X <- NULL
+  ttt$error <- NULL
+  colnames(ttt) <- c('package', 'dataset', 'obj', 'grouping', 'levels', 'test')
+  print(xtable(ttt), floating=FALSE, include.rownames=FALSE)
+@
+  \end{center}
+\end{table}
+
+
+
+As can be seen in table~\ref{tab:experiment}, among \Sexpr{nrow(experiment)} different test cases,
+only 3 of them, all made with the Wilcoxon rank sum test, suffered from broken transitivity that
+prevented the resulting Hasse diagram to exist. Table~\ref{tab:broken} provides details about that
+datasets.
+
+From that we can conclude, that although theoretically possible, broken partial orderness of
+multiple comparisons appears very seldom, in real data.
+
+
+
+
+\section{Direct Hasse Diagram Plot}
+
+The \pkg{paircompviz} package also provides a function, \code{hasse}, for direct visualization of a Hasse
+diagram defined by an adjacency matrix. Prior plotting, transitive edges have to be removed from the
+adjacency matrix. That can be done by using \code{transReduct} function. For instance, the Hasse
+diagram in Fig.~\ref{fig:customHasse} was generated by the subsequent code:
+
+<<customHasse,fig=TRUE,echo=TRUE,include=FALSE,width=7,height=5>>=
+  # create adjacency matrix
+  e <- matrix(c(0, 0, 0, 0, 0, 0, 0, 0,
+                1, 0, 0, 0, 0, 0, 0, 0,
+                1, 1, 0, 0, 0, 0, 0, 0,
+                1, 0, 0, 0, 0, 0, 0, 0,
+                1, 1, 1, 1, 0, 0, 0, 0,
+                1, 1, 1, 1, 1, 0, 0, 0,
+                1, 1, 1, 1, 1, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0), nrow=8)
+
+  # remove transitive edges
+  e <- transReduct(e)
+
+  # draw Hasse diagram
+  hasse(e, v=LETTERS[1:8], main="")
+@
+
+The only required argument, \code{e}, must be an adjacency matrix with non-zero value $e_{ij}$ if
+there has to be an edge from node $i$ to node $j$. The values of matrix \code{e} are also used to
+determine edge line thickness.
+
+Argument \code{v} is a vector of node labels, \code{elab} is a vector of edge labels, \code{ecol}
+for edge label colors, \code{ebg} for edge line colors, \code{vcol} and \code{vbg} for colors of
+node labels and background, \code{vsize} for node sizes, \code{fvlab}, \code{fvcol}, \code{fvbg}
+\code{fvsize} for dot node label (defaults to \code{"."}), foreground and background colors and
+size, \code{febg} and \code{fesize} set the color and size of edges starting or ending in a dot
+node. There also may be a diagram title specified in the \code{main} argument. Edge compression
+described in section \ref{sec:paircomp} can be turned on by setting the \code{compress} argument to
+\code{TRUE}.
+
+%
+%<<fig=TRUE,echo=FALSE,width=7,height=4>>=
+  %boxplot(count ~ spray, data=InsectSprays)
+%@
+
+
+
+%<<fig=TRUE,echo=TRUE,width=7,height=4>>=
+  %library(multcomp)
+  %r <- pairwise.t.test(detergent$plates, detergent$detergent)
+  %r$p.value
+  %plot.pairwise.htest(r, detergent$plates, detergent$detergent)
+%@
+
+
+
+%<<fig=TRUE,echo=TRUE,width=7,height=4>>=
+  %library(multcomp)
+  %data <- fattyacid
+  %data <- na.omit(data)
+
+  %r <- pairwise.t.test(data$FA, data$PE)
+  %r$p.value
+  %plot.pairwise.htest(r, data$FA, data$PE)
+%@
+
+
+
+\section{Conclusion}
+
+The presented \pkg{paircompviz} package contains a function \code{paircomp} to draw a Hasse diagram
+from the results of multiple pairwise
+comparison tests. Nodes of the graph represent treatments, edges represent statistically significant
+difference. Optionally, the shape of the nodes and thickness of the edges respectively depict
+the size of the samples and strength of the differences.
+
+The novel visualization method is compared to the existing compact letter display technique that is
+provided by the \pkg{multcomp} package. For large set of treatments (say more than 3), Hasse diagram
+combinded with box-plot and compact letter display provides clear and useful additional visual
+information.
+
+Hasse diagrams may be produced from the results of the $t$-test, Wilcoxon rank sum test or
+proportion test, that is realized by the \pkg{stats} package \citep{r} functions
+\code{pairwise.t.test}, \code{pairwise.wilcox.test} or \code{pairwise.prop.test}, respectively.
+For convenience, \code{paircomp} also accepts results from \pkg{multcomp}'s \citep{multcomp}
+\code{glht} function that performs Tukey's test.
+
+Hasse diagram can be constructed for results that partially order the treatments. Since it is
+theoretically not always the case, an experiment shows that pairwise comparisons violating
+partial orderness occur very seldom, in reality. From 567 trials of pairwise
+Wilcoxon rank sum test, partial order violation occured only 3 times. For other types of tests, the
+violation did not occur in any of more than 500 trials at all.
+
+
+
+
+\section*{Acknowledgment}
+
+This work was supported by the European Regional Development Fund in the IT4Innovations Centre of Excellence project
+(CZ.1.05/1.1.00/02.0070). \\
+
+
+\bibliography{bibliography}
+
+\end{document}
