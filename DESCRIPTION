@@ -1,7 +1,7 @@
 Package: paircompviz
 Type: Package
 Title: Multiple comparison test visualization
-Version: 1.44.0
+Version: 1.45.0
 Date: 2013-06-01
 Author: Michal Burda
 Maintainer: Michal Burda <michal.burda@osu.cz>
